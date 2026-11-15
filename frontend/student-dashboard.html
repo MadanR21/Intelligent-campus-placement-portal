@@ -6,106 +6,54 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
 
-    <title>Student Dashboard | CampusConnect</title>
+    <title>Student Dashboard | CareerSphere</title>
 
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
     <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.css" rel="stylesheet">
 
     <link rel="stylesheet" href="style.css">
     <link rel="stylesheet" href="dashboard.css">
-
-    <!-- STUDENT ROLE PROTECTION -->
-    <script>
-    (function () {
-        const savedUser = sessionStorage.getItem("campusconnectUser");
-
-        if (!savedUser) {
-            alert("Please login first!");
-            window.location.replace("login.html");
-            return;
-        }
-
-        let user;
-
-        try {
-            user = JSON.parse(savedUser);
-        } catch (error) {
-            alert("Invalid session. Please login again.");
-            sessionStorage.removeItem("campusconnectUser");
-            window.location.replace("login.html");
-            return;
-        }
-
-        if (!user || user.role !== "student") {
-            alert("ACCESS DENIED! Only students can access the Student Dashboard.");
-
-            if (user && user.role === "recruiter") {
-                window.location.replace("recruiter-dashboard.html");
-            } else if (user && user.role === "admin") {
-                window.location.replace("admin-dashboard.html");
-            } else {
-                sessionStorage.removeItem("campusconnectUser");
-                window.location.replace("login.html");
-            }
-
-            return;
-        }
-    })();
-    </script>
-
 </head>
 
 <body>
 
-    <!-- STUDENT NAVIGATION BAR -->
     <nav class="navbar navbar-expand-lg dashboard-navbar">
         <div class="container">
 
             <a class="navbar-brand fw-bold" href="index.html">
                 <i class="bi bi-mortarboard-fill"></i>
-                CampusConnect
+                CareerSphere
             </a>
 
             <div class="d-flex align-items-center gap-3">
+                <span id="studentName" class="fw-semibold">Student</span>
 
-                <span id="studentName" class="fw-semibold">
-                    Student
-                </span>
-
-                <button class="btn btn-outline-danger btn-sm" id="logoutButton">
+                <button class="btn btn-outline-danger btn-sm" id="logoutButton" type="button">
                     <i class="bi bi-box-arrow-right"></i>
                     Logout
                 </button>
-
             </div>
+
         </div>
     </nav>
 
-    <!-- MAIN STUDENT DASHBOARD -->
     <main class="container dashboard-container">
 
-        <!-- WELCOME SECTION -->
         <section class="dashboard-welcome">
             <div>
-
-                <p class="text-uppercase small fw-bold">
-                    Student Portal
-                </p>
+                <p class="text-uppercase small fw-bold">Student Portal</p>
 
                 <h1>
-                    Welcome,
-                    <span id="welcomeName">Student</span>!
+                    Welcome, <span id="welcomeName">Student</span>!
                 </h1>
 
                 <p>
                     Discover opportunities, track your applications
                     and take the next step in your career.
                 </p>
-
             </div>
         </section>
 
-        <!-- DASHBOARD STATISTICS -->
         <section class="row g-4 dashboard-statistics">
 
             <div class="col-md-4">
@@ -134,11 +82,9 @@
 
         </section>
 
-        <!-- MY APPLICATIONS SECTION -->
         <section class="applications-section mt-5">
 
             <div class="d-flex justify-content-between align-items-center flex-wrap gap-3 mb-4">
-
                 <div>
                     <p class="text-uppercase small fw-bold text-primary mb-1">
                         Application Management
@@ -150,23 +96,18 @@
                     </h2>
 
                     <p>
-                        Monitor your placement applications and
-                        track recruitment progress.
+                        Monitor your placement applications and track recruitment progress.
                     </p>
                 </div>
 
-                <button
-                    class="btn btn-outline-primary"
-                    id="refreshApplicationsButton"
-                    type="button"
-                >
+                <button class="btn btn-outline-primary"
+                        id="refreshApplicationsButton"
+                        type="button">
                     <i class="bi bi-arrow-clockwise"></i>
                     Refresh Applications
                 </button>
-
             </div>
 
-            <!-- APPLICATION STATUS OVERVIEW -->
             <div class="row g-3 mb-4">
 
                 <div class="col-6 col-md-3">
@@ -211,29 +152,18 @@
 
             </div>
 
-            <!-- APPLICATION MESSAGE -->
-            <div
-                id="applicationsMessage"
-                class="alert alert-info"
-                role="status"
-            >
+            <div id="applicationsMessage" class="alert alert-info" role="status">
                 <i class="bi bi-arrow-repeat"></i>
                 Loading your applications...
             </div>
 
-            <!-- APPLICATION RECORDS -->
-            <div
-                class="applications-container"
-                id="applicationsContainer"
-            ></div>
+            <div class="applications-container" id="applicationsContainer"></div>
 
         </section>
 
-        <!-- AVAILABLE PLACEMENT OPPORTUNITIES -->
         <section class="jobs-section mt-5">
 
             <div class="d-flex justify-content-between align-items-center flex-wrap gap-2 mb-4">
-
                 <div>
                     <p class="text-uppercase small fw-bold text-primary mb-1">
                         Career Opportunities
@@ -250,39 +180,27 @@
                     </p>
                 </div>
 
-                <button
-                    class="btn btn-outline-primary"
-                    id="refreshJobsButton"
-                    type="button"
-                >
+                <button class="btn btn-outline-primary"
+                        id="refreshJobsButton"
+                        type="button">
                     <i class="bi bi-arrow-clockwise"></i>
                     Refresh Jobs
                 </button>
-
             </div>
 
-            <!-- JOB MESSAGE -->
-            <div
-                id="jobsMessage"
-                class="alert alert-info"
-                role="status"
-            >
+            <div id="jobsMessage" class="alert alert-info" role="status">
                 <i class="bi bi-arrow-repeat"></i>
                 Loading placement opportunities...
             </div>
 
-            <!-- JOB LISTINGS -->
-            <div
-                class="row g-4"
-                id="jobsContainer"
-            ></div>
+            <div class="row g-4" id="jobsContainer"></div>
 
         </section>
 
     </main>
 
-    <!-- MAIN JAVASCRIPT -->
     <script src="script.js"></script>
+    <script src="features-ui.js"></script>
 
 </body>
 </html>

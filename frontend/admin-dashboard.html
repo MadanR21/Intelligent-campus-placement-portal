@@ -5,7 +5,8 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
 
-    <title>Admin Dashboard | CampusConnect</title>
+    <title>Admin Dashboard | CareerSphere</title>
+    <meta name="description" content="Manage users, jobs, applications and placement performance with CareerSphere.">
 
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
     <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.css" rel="stylesheet">
@@ -13,17 +14,124 @@
 
     <link rel="stylesheet" href="style.css">
     <link rel="stylesheet" href="dashboard.css">
+
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+            background: #f5f7fb;
+        }
+
+        .dashboard-welcome {
+            background: linear-gradient(120deg, #172554, #2563eb);
+            color: white;
+            padding: 30px;
+            border-radius: 16px;
+        }
+
+        .dashboard-welcome h2 {
+            font-weight: 800;
+        }
+
+        .dashboard-section {
+            scroll-margin-top: 90px;
+        }
+
+        .dashboard-section .table {
+            min-width: 750px;
+        }
+
+        .dashboard-section .table th {
+            white-space: nowrap;
+        }
+
+        .dashboard-section .table td {
+            vertical-align: middle;
+        }
+
+        .admin-stat-card {
+            transition: transform .2s ease, box-shadow .2s ease;
+        }
+
+        .admin-stat-card:hover {
+            transform: translateY(-3px);
+            box-shadow: 0 8px 22px rgba(0,0,0,.08) !important;
+        }
+
+        .modal-content {
+            border: 0;
+            border-radius: 15px;
+            overflow: hidden;
+        }
+
+        .modal-header {
+            background: #f8fafc;
+        }
+
+        /* ADMIN EDIT JOB MODAL FIX */
+
+        #adminEditJobModal .modal-content {
+            display: flex;
+            flex-direction: column;
+            max-height: calc(100vh - 1rem);
+        }
+
+        #adminEditJobModal #adminEditJobForm {
+            display: flex;
+            flex-direction: column;
+            flex: 1 1 auto;
+            min-height: 0;
+            overflow: hidden;
+        }
+
+        #adminEditJobModal .modal-body {
+            flex: 1 1 auto;
+            min-height: 0;
+            overflow-y: auto;
+        }
+
+        #adminEditJobModal .modal-footer {
+            display: flex !important;
+            flex-shrink: 0;
+            justify-content: flex-end;
+            gap: 10px;
+            background: #ffffff;
+            border-top: 1px solid #dee2e6;
+            padding: 15px 20px;
+            visibility: visible !important;
+        }
+
+        #adminEditJobModal #adminSaveJobButton {
+            display: inline-block !important;
+            visibility: visible !important;
+        }
+
+        .form-label {
+            margin-bottom: 7px;
+        }
+
+        .admin-section-icon {
+            width: 38px;
+            height: 38px;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            border-radius: 10px;
+            background: #eff6ff;
+            color: #2563eb;
+            margin-right: 8px;
+        }
+
+        footer {
+            margin-top: 35px;
+        }
+    </style>
 </head>
 
 <body>
 
-<!-- =========================================
-     ADMIN ROLE PROTECTION
-========================================= -->
-
+<!-- ADMIN ROLE PROTECTION -->
 <script>
 (function () {
-
     let user = null;
 
     try {
@@ -34,14 +142,12 @@
         user = null;
     }
 
-    // Check whether user is logged in
-    if (!user || !user.user_id) {
+    if (!user || !(user.user_id || user.id || user._id)) {
         window.location.replace("login.html");
         return;
     }
 
-    // Check whether the logged-in user is an administrator
-    if (user.role !== "admin") {
+    if (String(user.role || "").toLowerCase() !== "admin") {
 
         window.campusConnectAccessBlocked = true;
 
@@ -49,12 +155,10 @@
 
         if (user.role === "student") {
             redirectPage = "student-dashboard.html";
-        }
-        else if (user.role === "recruiter") {
+        } else if (user.role === "recruiter") {
             redirectPage = "recruiter-dashboard.html";
         }
 
-        // Display full-screen access denied message
         document.write(`
             <div style="
                 position:fixed;
@@ -70,20 +174,11 @@
                 padding:20px;
             ">
                 <div>
-                    <div style="
-                        font-size:65px;
-                        color:#ff4545;
-                        margin-bottom:15px;
-                    ">
+                    <div style="font-size:65px;color:#ff4545;margin-bottom:15px;">
                         <i class="bi bi-shield-lock-fill"></i>
                     </div>
 
-                    <h1 style="
-                        color:#ff4545;
-                        font-size:42px;
-                        font-weight:bold;
-                        margin-bottom:15px;
-                    ">
+                    <h1 style="color:#ff4545;font-size:42px;font-weight:bold;margin-bottom:15px;">
                         ACCESS DENIED!
                     </h1>
 
@@ -95,10 +190,7 @@
                         You do not have permission to view the Admin Dashboard.
                     </p>
 
-                    <p style="
-                        color:#facc15;
-                        margin-top:20px;
-                    ">
+                    <p style="color:#facc15;margin-top:20px;">
                         Redirecting to your dashboard...
                     </p>
 
@@ -122,60 +214,47 @@
             </style>
         `);
 
-        // Redirect after displaying the message
         setTimeout(function () {
             window.location.replace(redirectPage);
         }, 2500);
-
     }
-
 })();
 </script>
 
-
-<!-- =========================================
-     ADMIN DASHBOARD CONTENT
-========================================= -->
-
 <!-- NAVIGATION -->
-
 <nav class="navbar navbar-expand-lg bg-white border-bottom sticky-top">
     <div class="container-fluid px-4">
 
         <a class="navbar-brand fw-bold" href="index.html">
             <i class="bi bi-mortarboard-fill me-2"></i>
-            CampusConnect
+            CareerSphere
             <span class="text-secondary small ms-2">ADMIN</span>
         </a>
 
         <div class="d-flex align-items-center gap-3">
-
-            <span class="text-secondary">
+            <span class="text-secondary d-none d-sm-inline">
                 <i class="bi bi-shield-lock-fill me-1"></i>
                 Administrator
             </span>
 
-            <button class="btn btn-outline-danger btn-sm" id="logoutButton">
+            <button class="btn btn-outline-danger btn-sm"
+                    id="logoutButton"
+                    type="button">
                 <i class="bi bi-box-arrow-right me-1"></i>
                 Logout
             </button>
-
         </div>
 
     </div>
 </nav>
 
-
 <main class="container-fluid px-4 py-4">
 
     <!-- WELCOME -->
-
     <section class="dashboard-welcome mb-4">
-
         <div>
-
             <p class="text-uppercase small fw-semibold mb-2">
-                Administration Portal
+                CAREERSPHERE ADMINISTRATION PORTAL
             </p>
 
             <h2 class="fw-bold">
@@ -185,220 +264,132 @@
             <p class="mb-0">
                 Monitor users, recruitment activities and placement performance.
             </p>
-
         </div>
-
     </section>
 
-
     <!-- DASHBOARD STATISTICS -->
-
     <section class="mb-5">
 
-        <h4 class="fw-bold mb-3">Platform Overview</h4>
+        <h4 class="fw-bold mb-3">
+            <i class="bi bi-speedometer2 me-2 text-primary"></i>
+            Platform Overview
+        </h4>
 
         <div class="row g-3">
 
             <div class="col-md-6 col-xl-3">
-
-                <div class="card shadow-sm border-0 h-100 p-3">
-
-                    <div class="d-flex justify-content-between">
-
+                <div class="card admin-stat-card shadow-sm border-0 h-100 p-3">
+                    <div class="d-flex justify-content-between align-items-center">
                         <div>
-                            <p class="text-secondary mb-1">
-                                Total Students
-                            </p>
-
-                            <h3 class="fw-bold" id="adminTotalStudents">
-                                0
-                            </h3>
+                            <p class="text-secondary mb-1">Total Students</p>
+                            <h3 class="fw-bold mb-0" id="adminTotalStudents">0</h3>
                         </div>
-
                         <i class="bi bi-people fs-2 text-primary"></i>
-
                     </div>
-
                 </div>
-
             </div>
 
-
             <div class="col-md-6 col-xl-3">
-
-                <div class="card shadow-sm border-0 h-100 p-3">
-
-                    <div class="d-flex justify-content-between">
-
+                <div class="card admin-stat-card shadow-sm border-0 h-100 p-3">
+                    <div class="d-flex justify-content-between align-items-center">
                         <div>
-                            <p class="text-secondary mb-1">
-                                Total Recruiters
-                            </p>
-
-                            <h3 class="fw-bold" id="adminTotalRecruiters">
-                                0
-                            </h3>
+                            <p class="text-secondary mb-1">Total Recruiters</p>
+                            <h3 class="fw-bold mb-0" id="adminTotalRecruiters">0</h3>
                         </div>
-
                         <i class="bi bi-building fs-2 text-success"></i>
-
                     </div>
-
                 </div>
-
             </div>
 
-
             <div class="col-md-6 col-xl-3">
-
-                <div class="card shadow-sm border-0 h-100 p-3">
-
-                    <div class="d-flex justify-content-between">
-
+                <div class="card admin-stat-card shadow-sm border-0 h-100 p-3">
+                    <div class="d-flex justify-content-between align-items-center">
                         <div>
-                            <p class="text-secondary mb-1">
-                                Active Jobs
-                            </p>
-
-                            <h3 class="fw-bold" id="adminTotalJobs">
-                                0
-                            </h3>
+                            <p class="text-secondary mb-1">Active Jobs</p>
+                            <h3 class="fw-bold mb-0" id="adminTotalJobs">0</h3>
                         </div>
-
                         <i class="bi bi-briefcase fs-2 text-warning"></i>
-
                     </div>
-
                 </div>
-
             </div>
 
-
             <div class="col-md-6 col-xl-3">
-
-                <div class="card shadow-sm border-0 h-100 p-3">
-
-                    <div class="d-flex justify-content-between">
-
+                <div class="card admin-stat-card shadow-sm border-0 h-100 p-3">
+                    <div class="d-flex justify-content-between align-items-center">
                         <div>
-                            <p class="text-secondary mb-1">
-                                Applications
-                            </p>
-
-                            <h3 class="fw-bold" id="adminTotalApplications">
-                                0
-                            </h3>
+                            <p class="text-secondary mb-1">Applications</p>
+                            <h3 class="fw-bold mb-0" id="adminTotalApplications">0</h3>
                         </div>
-
                         <i class="bi bi-file-earmark-text fs-2 text-danger"></i>
-
                     </div>
-
                 </div>
-
             </div>
 
         </div>
-
     </section>
 
-
     <!-- PLACEMENT STATISTICS -->
-
     <section class="mb-5">
 
         <h4 class="fw-bold mb-3">
+            <i class="bi bi-graph-up-arrow me-2 text-primary"></i>
             Placement Performance
         </h4>
 
         <div class="row g-3">
 
             <div class="col-md-4">
-
-                <div class="card border-0 shadow-sm p-3">
-
-                    <p class="text-secondary mb-1">
-                        Pending Applications
-                    </p>
-
-                    <h3 class="fw-bold" id="adminPendingApplications">
-                        0
-                    </h3>
-
+                <div class="card admin-stat-card border-0 shadow-sm p-3 h-100">
+                    <p class="text-secondary mb-1">Pending Applications</p>
+                    <h3 class="fw-bold text-warning" id="adminPendingApplications">0</h3>
                 </div>
-
             </div>
 
-
             <div class="col-md-4">
-
-                <div class="card border-0 shadow-sm p-3">
-
-                    <p class="text-secondary mb-1">
-                        Shortlisted Applications
-                    </p>
-
-                    <h3 class="fw-bold" id="adminShortlistedApplications">
-                        0
-                    </h3>
-
+                <div class="card admin-stat-card border-0 shadow-sm p-3 h-100">
+                    <p class="text-secondary mb-1">Shortlisted Applications</p>
+                    <h3 class="fw-bold text-info" id="adminShortlistedApplications">0</h3>
                 </div>
-
             </div>
 
-
             <div class="col-md-4">
-
-                <div class="card border-0 shadow-sm p-3">
-
-                    <p class="text-secondary mb-1">
-                        Selected Students
-                    </p>
-
-                    <h3 class="fw-bold" id="adminSelectedApplications">
-                        0
-                    </h3>
-
+                <div class="card admin-stat-card border-0 shadow-sm p-3 h-100">
+                    <p class="text-secondary mb-1">Selected Students</p>
+                    <h3 class="fw-bold text-success" id="adminSelectedApplications">0</h3>
                 </div>
-
             </div>
 
         </div>
-
     </section>
 
-
     <!-- USER MANAGEMENT -->
-
     <section class="dashboard-section mb-5" id="userManagementSection">
 
         <div class="d-flex justify-content-between align-items-center flex-wrap gap-2 mb-3">
-
             <div>
                 <h4 class="fw-bold mb-1">
+                    <i class="bi bi-people admin-section-icon"></i>
                     User Management
                 </h4>
-
                 <p class="text-secondary mb-0">
                     View registered students, recruiters and administrators.
                 </p>
             </div>
 
-            <button class="btn btn-outline-primary" id="refreshUsersButton">
+            <button class="btn btn-outline-primary"
+                    id="refreshUsersButton"
+                    type="button">
                 <i class="bi bi-arrow-clockwise me-1"></i>
                 Refresh Users
             </button>
-
         </div>
 
         <div id="adminUsersMessage" class="mb-3"></div>
 
         <div class="table-responsive bg-white rounded shadow-sm">
-
             <table class="table table-hover align-middle mb-0">
 
                 <thead class="table-light">
-
                     <tr>
                         <th>Name</th>
                         <th>Email</th>
@@ -406,43 +397,39 @@
                         <th>Department</th>
                         <th>Graduation Year</th>
                     </tr>
-
                 </thead>
 
                 <tbody id="adminUsersContainer">
-
                     <tr>
                         <td colspan="5" class="text-center text-secondary py-4">
                             Loading users...
                         </td>
                     </tr>
-
                 </tbody>
 
             </table>
-
         </div>
-
     </section>
 
-
     <!-- JOB MANAGEMENT -->
-
     <section class="dashboard-section mb-5" id="jobManagementSection">
 
         <div class="d-flex justify-content-between align-items-center flex-wrap gap-2 mb-3">
 
             <div>
                 <h4 class="fw-bold mb-1">
+                    <i class="bi bi-briefcase admin-section-icon"></i>
                     Job Management
                 </h4>
 
                 <p class="text-secondary mb-0">
-                    Monitor opportunities published by recruiters.
+                    Monitor, edit and delete opportunities published by recruiters.
                 </p>
             </div>
 
-            <button class="btn btn-outline-primary" id="refreshAdminJobsButton">
+            <button class="btn btn-outline-primary"
+                    id="refreshAdminJobsButton"
+                    type="button">
                 <i class="bi bi-arrow-clockwise me-1"></i>
                 Refresh Jobs
             </button>
@@ -456,7 +443,6 @@
             <table class="table table-hover align-middle mb-0">
 
                 <thead class="table-light">
-
                     <tr>
                         <th>Job Title</th>
                         <th>Company</th>
@@ -464,35 +450,30 @@
                         <th>Minimum CGPA</th>
                         <th>Graduation Year</th>
                         <th>Location</th>
+                        <th class="text-center">Actions</th>
                     </tr>
-
                 </thead>
 
                 <tbody id="adminJobsContainer">
-
                     <tr>
-                        <td colspan="6" class="text-center text-secondary py-4">
+                        <td colspan="7" class="text-center text-secondary py-4">
                             Loading jobs...
                         </td>
                     </tr>
-
                 </tbody>
 
             </table>
-
         </div>
-
     </section>
 
-
     <!-- APPLICATION MANAGEMENT -->
-
     <section class="dashboard-section mb-5" id="applicationManagementSection">
 
         <div class="d-flex justify-content-between align-items-center flex-wrap gap-2 mb-3">
 
             <div>
                 <h4 class="fw-bold mb-1">
+                    <i class="bi bi-file-earmark-check admin-section-icon"></i>
                     Application Monitoring
                 </h4>
 
@@ -501,7 +482,9 @@
                 </p>
             </div>
 
-            <button class="btn btn-outline-primary" id="refreshAdminApplicationsButton">
+            <button class="btn btn-outline-primary"
+                    id="refreshAdminApplicationsButton"
+                    type="button">
                 <i class="bi bi-arrow-clockwise me-1"></i>
                 Refresh Applications
             </button>
@@ -515,56 +498,214 @@
             <table class="table table-hover align-middle mb-0">
 
                 <thead class="table-light">
-
                     <tr>
-                        <th>Student ID</th>
-                        <th>Job ID</th>
+                        <th>Student</th>
+                        <th>Department</th>
+                        <th>Company / Job</th>
                         <th>CGPA</th>
+                        <th>Graduation Year</th>
                         <th>Status</th>
                         <th>Application Date</th>
                     </tr>
-
                 </thead>
 
                 <tbody id="adminApplicationsContainer">
-
                     <tr>
-                        <td colspan="5" class="text-center text-secondary py-4">
+                        <td colspan="7" class="text-center text-secondary py-4">
                             Loading applications...
                         </td>
                     </tr>
-
                 </tbody>
 
             </table>
-
         </div>
-
     </section>
 
-
     <!-- FOOTER -->
-
     <footer class="text-center text-secondary border-top pt-4 pb-3">
-
-        <p class="mb-1 fw-semibold">
-            CampusConnect Administration
+        <p class="mb-1 fw-semibold">CareerSphere Administration</p>
+        <small>Intelligent Campus Placement Management System</small>
+        <p class="small mt-2 mb-0">
+            Secure Campus Placement Management Portal
         </p>
-
-        <small>
-            Intelligent Campus Placement Management System
-        </small>
-
     </footer>
 
 </main>
 
+<!-- EDIT JOB MODAL -->
+<div class="modal fade" id="adminEditJobModal"
+     tabindex="-1"
+     aria-labelledby="adminEditJobModalLabel"
+     aria-hidden="true">
 
-<!-- =========================================
-     MAIN JAVASCRIPT
-========================================= -->
+    <div class="modal-dialog modal-lg modal-dialog-centered modal-dialog-scrollable">
 
+        <div class="modal-content">
+
+            <div class="modal-header">
+
+                <div>
+                    <h5 class="modal-title fw-bold" id="adminEditJobModalLabel">
+                        <i class="bi bi-pencil-square me-2"></i>
+                        Edit Job Details
+                    </h5>
+
+                    <p class="text-secondary small mb-0">
+                        Update the job opportunity information.
+                    </p>
+                </div>
+
+                <button type="button"
+                        class="btn-close"
+                        data-bs-dismiss="modal"
+                        aria-label="Close">
+                </button>
+
+            </div>
+
+            <form id="adminEditJobForm">
+
+                <div class="modal-body">
+
+                    <input type="hidden" id="adminEditJobId">
+
+                    <div id="adminEditJobMessage"
+                         class="alert alert-danger mt-1"
+                         role="alert"
+                         hidden>
+                    </div>
+
+                    <div class="row g-3">
+
+                        <div class="col-md-6">
+                            <label for="adminEditCompany" class="form-label fw-semibold">
+                                Company Name
+                            </label>
+                            <input type="text" class="form-control"
+                                   id="adminEditCompany"
+                                   placeholder="Enter company name" required>
+                        </div>
+
+                        <div class="col-md-6">
+                            <label for="adminEditTitle" class="form-label fw-semibold">
+                                Job Title
+                            </label>
+                            <input type="text" class="form-control"
+                                   id="adminEditTitle"
+                                   placeholder="Enter job title" required>
+                        </div>
+
+                        <div class="col-12">
+                            <label for="adminEditDescription" class="form-label fw-semibold">
+                                Job Description
+                            </label>
+                            <textarea class="form-control"
+                                      id="adminEditDescription"
+                                      rows="4"
+                                      placeholder="Enter complete job description"
+                                      required></textarea>
+                        </div>
+
+                        <div class="col-md-4">
+                            <label for="adminEditCGPA" class="form-label fw-semibold">
+                                Minimum CGPA
+                            </label>
+                            <input type="number" class="form-control"
+                                   id="adminEditCGPA"
+                                   min="0" max="10" step="0.01"
+                                   placeholder="Example: 7.0" required>
+                        </div>
+
+                        <div class="col-md-4">
+                            <label for="adminEditDepartment" class="form-label fw-semibold">
+                                Eligible Department
+                            </label>
+                            <input type="text" class="form-control"
+                                   id="adminEditDepartment"
+                                   placeholder="Example: CSE" required>
+                        </div>
+
+                        <div class="col-md-4">
+                            <label for="adminEditGraduationYear" class="form-label fw-semibold">
+                                Graduation Year
+                            </label>
+                            <input type="number" class="form-control"
+                                   id="adminEditGraduationYear"
+                                   min="2000" max="2100"
+                                   placeholder="Example: 2027">
+                        </div>
+
+                        <div class="col-md-6">
+                            <label for="adminEditSalary" class="form-label fw-semibold">
+                                Salary / Package
+                            </label>
+                            <input type="text" class="form-control"
+                                   id="adminEditSalary"
+                                   placeholder="Example: 6 LPA">
+                        </div>
+
+                        <div class="col-md-6">
+                            <label for="adminEditLocation" class="form-label fw-semibold">
+                                Job Location
+                            </label>
+                            <input type="text" class="form-control"
+                                   id="adminEditLocation"
+                                   placeholder="Example: Bengaluru">
+                        </div>
+
+                        <div class="col-12">
+                            <label for="adminEditSkills" class="form-label fw-semibold">
+                                Required Skills
+                            </label>
+                            <textarea class="form-control"
+                                      id="adminEditSkills"
+                                      rows="2"
+                                      placeholder="Example: Python, Java, SQL"></textarea>
+                            <div class="form-text">
+                                Separate multiple skills using commas.
+                            </div>
+                        </div>
+
+                        <div class="col-md-6">
+                            <label for="adminEditDeadline" class="form-label fw-semibold">
+                                Application Deadline
+                            </label>
+                            <input type="date" class="form-control"
+                                   id="adminEditDeadline">
+                        </div>
+
+                    </div>
+                </div>
+
+                <!-- FIXED MODAL FOOTER -->
+                <div class="modal-footer">
+
+                    <button type="button"
+                            class="btn btn-secondary"
+                            data-bs-dismiss="modal">
+                        <i class="bi bi-x-circle me-1"></i>
+                        Cancel
+                    </button>
+
+                    <button type="submit"
+                            class="btn btn-primary"
+                            id="adminSaveJobButton">
+                        <i class="bi bi-check-circle me-1"></i>
+                        Save Changes
+                    </button>
+
+                </div>
+
+            </form>
+
+        </div>
+    </div>
+</div>
+
+<!-- JAVASCRIPT -->
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
 <script src="script.js"></script>
+<script src="features-ui.js"></script>
 
 </body>
 </html>

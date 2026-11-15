@@ -1,9 +1,9 @@
-
 /* =====================================================
-   CAMPUSCONNECT - COMPLETE FRONTEND JAVASCRIPT
+   CAREERSPHERE - COMPLETE FRONTEND JAVASCRIPT
+   Updated: Admin Edit/Delete Jobs + Resume View/Download
 ===================================================== */
 
-const API_BASE_URL = "http://127.0.0.1:8000";
+const API_BASE_URL = "http://127.0.0.1:8002";
 
 /* =====================================================
    1. CENTRAL DASHBOARD ACCESS PROTECTION
@@ -24,6 +24,12 @@ window.campusConnectAccessBlocked = false;
         "admin-dashboard.html": "admin"
     };
 
+    const dashboardPages = {
+        student: "student-dashboard.html",
+        recruiter: "recruiter-dashboard.html",
+        admin: "admin-dashboard.html"
+    };
+
     const requiredRole = requiredRoles[currentPage];
 
     if (!requiredRole) return;
@@ -38,17 +44,13 @@ window.campusConnectAccessBlocked = false;
         console.error("Session reading error:", error);
     }
 
-    const dashboardPages = {
-        student: "student-dashboard.html",
-        recruiter: "recruiter-dashboard.html",
-        admin: "admin-dashboard.html"
-    };
+    const userRole = String(user?.role || "")
+        .trim()
+        .toLowerCase();
 
-    if (
-        user &&
-        user.user_id &&
-        user.role === requiredRole
-    ) {
+    const userId = user?.user_id || user?.id || user?._id;
+
+    if (user && userId && userRole === requiredRole) {
         return;
     }
 
@@ -58,14 +60,16 @@ window.campusConnectAccessBlocked = false;
     let title = "LOGIN REQUIRED";
     let message = "Please log in to access this dashboard.";
 
-    if (user && user.user_id) {
+    if (user && userId && dashboardPages[userRole]) {
 
         title = "ACCESS DENIED!";
+
         message =
             "You do not have permission to access the " +
-            requiredRole.toUpperCase() + " dashboard.";
+            requiredRole.toUpperCase() +
+            " dashboard.";
 
-        destination = dashboardPages[user.role] || "login.html";
+        destination = dashboardPages[userRole];
 
     } else {
 
@@ -148,24 +152,43 @@ window.campusConnectAccessBlocked = false;
    2. AUTHENTICATED API REQUEST HELPER
 ===================================================== */
 
-async function apiFetch(url, options = {}) {
-
-    let user = null;
+function getCampusConnectUser() {
 
     try {
-        user = JSON.parse(
+        return JSON.parse(
             sessionStorage.getItem("campusconnectUser") || "null"
         );
     } catch (error) {
-        console.error("Unable to read authentication session:", error);
+        console.error("Unable to read user session:", error);
+        return null;
     }
+}
+
+function getCampusConnectToken(user = getCampusConnectUser()) {
+
+    if (!user) return null;
+
+    return (
+        user.access_token ||
+        user.token ||
+        user.accessToken ||
+        user.jwt ||
+        null
+    );
+}
+
+async function apiFetch(url, options = {}) {
+
+    const user = getCampusConnectUser();
 
     const headers = new Headers(options.headers || {});
 
-    if (user && user.access_token) {
+    const token = getCampusConnectToken(user);
+
+    if (token) {
         headers.set(
             "Authorization",
-            `Bearer ${user.access_token}`
+            `Bearer ${token}`
         );
     }
 
@@ -322,13 +345,19 @@ if (loginForm) {
                 admin: "admin-dashboard.html"
             };
 
-            const destination = dashboardPages[result.role];
+            const role = String(result.role || "")
+                .trim()
+                .toLowerCase();
 
-            if (!result.user_id || !destination) {
+            const destination = dashboardPages[role];
+
+            if (!(result.user_id || result.id || result._id) || !destination) {
                 throw new Error(
                     "Your account information or role is not recognized."
                 );
             }
+
+            result.role = role;
 
             if (rememberMe && rememberMe.checked) {
 
@@ -712,20 +741,10 @@ if (registerForm) {
     const rejectedApplications =
         document.getElementById("rejectedApplications");
 
-    let student = null;
+    let student = getCampusConnectUser();
+    let studentProfileForGuidance = {};
 
-    try {
-
-        student = JSON.parse(
-            sessionStorage.getItem("campusconnectUser") || "null"
-        );
-
-    } catch (error) {
-
-        console.error("Could not read student session:", error);
-    }
-
-    if (!student || student.role !== "student") return;
+    if (!student || String(student.role).toLowerCase() !== "student") return;
 
     if (studentName) {
         studentName.textContent = student.name || "Student";
@@ -782,6 +801,7 @@ if (registerForm) {
             }
 
             const profile = await response.json();
+            studentProfileForGuidance = profile || {};
 
             if (studentDepartment) {
                 studentDepartment.textContent =
@@ -796,6 +816,34 @@ if (registerForm) {
                 studentDepartment.textContent = "Unavailable";
             }
         }
+    }
+
+    function getJobPublishedDate(job) {
+        const raw = job.published_at || job.created_at || job.posted_at || job.createdAt;
+        if (!raw) return "Date not provided";
+        const date = new Date(raw);
+        return Number.isNaN(date.getTime()) ? "Date not provided" : date.toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" });
+    }
+
+    function normaliseSkillList(value) {
+        if (Array.isArray(value)) return value.map(v => String(v).trim()).filter(Boolean);
+        return String(value || "").split(/[,;\n]/).map(v => v.trim()).filter(Boolean);
+    }
+
+    function buildSkillGuidance(job) {
+        const required = normaliseSkillList(job.required_skills || job.skills);
+        const studentSkills = normaliseSkillList(
+            studentProfileForGuidance.skills || studentProfileForGuidance.technical_skills ||
+            studentProfileForGuidance.skill_set || student.skills
+        );
+        if (!required.length) return '<div class="career-skill-guidance"><strong>Preparation tip:</strong> Review the job description and prepare examples of your strongest technical and communication skills.</div>';
+        const hasProfileSkills = studentSkills.length > 0;
+        const matched = required.filter(skill => studentSkills.some(own => own.toLowerCase() === skill.toLowerCase()));
+        const gaps = hasProfileSkills ? required.filter(skill => !studentSkills.some(own => own.toLowerCase() === skill.toLowerCase())) : required;
+        const advice = gaps.length
+            ? `Focus your preparation on: ${gaps.join(", ")}. Build a small project and practise explaining it.`
+            : "Your listed skills match the required skills. Practise technical questions and prepare project examples.";
+        return `<div class="career-skill-guidance"><strong>Career preparation</strong><div class="small">${hasProfileSkills ? `Skill matches: ${matched.length}/${required.length}` : "Add your skills to your profile for a personalised gap check."}</div><div>${escapeHTML(advice)}</div></div>`;
     }
 
     async function loadJobs() {
@@ -824,6 +872,12 @@ if (registerForm) {
             if (!Array.isArray(jobs)) {
                 throw new Error("Unexpected response from jobs API.");
             }
+
+            jobs.sort((a, b) => {
+                const dateA = new Date(a.published_at || a.created_at || a.posted_at || 0).getTime() || 0;
+                const dateB = new Date(b.published_at || b.created_at || b.posted_at || 0).getTime() || 0;
+                return dateB - dateA;
+            });
 
             if (totalJobs) {
                 totalJobs.textContent = jobs.length;
@@ -862,6 +916,10 @@ if (registerForm) {
                         <p class="job-description">
                             ${escapeHTML(job.description)}
                         </p>
+
+                        <p class="small text-muted job-published-date"><i class="bi bi-calendar3"></i> Published: ${escapeHTML(getJobPublishedDate(job))}</p>
+
+                        ${buildSkillGuidance(job)}
 
                         <div class="job-details">
 
@@ -1233,20 +1291,14 @@ if (registerForm) {
     const refreshJobsButton =
         document.getElementById("refreshRecruiterJobsButton");
 
-    let recruiter = null;
+    let recruiter = getCampusConnectUser();
 
-    try {
+    if (!recruiter || String(recruiter.role).toLowerCase() !== "recruiter") return;
 
-        recruiter = JSON.parse(
-            sessionStorage.getItem("campusconnectUser") || "null"
-        );
+    const recruiterId =
+        recruiter.user_id || recruiter.id || recruiter._id;
 
-    } catch (error) {
-
-        console.error("Unable to read recruiter session:", error);
-    }
-
-    if (!recruiter || recruiter.role !== "recruiter") return;
+    if (!recruiterId) return;
 
     if (recruiterName) {
         recruiterName.textContent = recruiter.name || "Recruiter";
@@ -1293,7 +1345,7 @@ if (registerForm) {
         try {
 
             const response = await apiFetch(
-                `${API_BASE_URL}/recruiters/${recruiter.user_id}/dashboard`
+                `${API_BASE_URL}/recruiters/${recruiterId}/dashboard`
             );
 
             const result = await response.json();
@@ -1344,7 +1396,7 @@ if (registerForm) {
         try {
 
             const response = await apiFetch(
-                `${API_BASE_URL}/recruiters/${recruiter.user_id}/jobs`
+                `${API_BASE_URL}/recruiters/${recruiterId}/jobs`
             );
 
             const jobs = await response.json();
@@ -1497,6 +1549,126 @@ if (registerForm) {
         }
     }
 
+
+    /* =================================================
+       8A. RECRUITER VIEW AND DOWNLOAD STUDENT RESUME
+    ================================================= */
+
+    async function handleApplicantResume(
+        applicationId,
+        action,
+        button
+    ) {
+
+        if (!applicationId) {
+            alert("Application ID is missing. Cannot access resume.");
+            return;
+        }
+
+        const originalHTML = button.innerHTML;
+
+        button.disabled = true;
+        button.textContent =
+            action === "view" ? "Opening..." : "Downloading...";
+
+        let previewWindow = null;
+
+        try {
+
+            if (action === "view") {
+                previewWindow = window.open("about:blank", "_blank");
+
+                if (!previewWindow) {
+                    throw new Error(
+                        "Your browser blocked the new tab. Please allow pop-ups and try again."
+                    );
+                }
+
+                previewWindow.document.write(
+                    "<p style='font-family:Arial;padding:20px'>Loading resume...</p>"
+                );
+            }
+
+            const response = await apiFetch(
+                `${API_BASE_URL}/recruiter/applications/${encodeURIComponent(applicationId)}/resume`
+            );
+
+            if (!response.ok) {
+
+                let errorMessage = "Unable to access the resume.";
+
+                try {
+
+                    const errorData = await response.json();
+
+                    errorMessage =
+                        errorData.detail || errorMessage;
+
+                } catch (error) {
+                    // Keep the default error message.
+                }
+
+                throw new Error(errorMessage);
+            }
+
+            const blob = await response.blob();
+
+            if (!blob || blob.size === 0) {
+                throw new Error("The resume file is empty.");
+            }
+
+            const fileURL = URL.createObjectURL(blob);
+
+            if (action === "view") {
+
+                previewWindow.location.href = fileURL;
+
+                setTimeout(function () {
+                    URL.revokeObjectURL(fileURL);
+                }, 60000);
+
+            } else {
+
+                const downloadLink = document.createElement("a");
+
+                downloadLink.href = fileURL;
+
+                downloadLink.download =
+                    "student-resume-" + applicationId;
+
+                document.body.appendChild(downloadLink);
+
+                downloadLink.click();
+
+                downloadLink.remove();
+
+                setTimeout(function () {
+                    URL.revokeObjectURL(fileURL);
+                }, 10000);
+            }
+
+        } catch (error) {
+
+            console.error("Resume access error:", error);
+
+            if (previewWindow && !previewWindow.closed) {
+                previewWindow.close();
+            }
+
+            alert(error.message || "Unable to access student resume.");
+
+        } finally {
+
+            button.disabled = false;
+            button.innerHTML = originalHTML;
+        }
+    }
+
+
+    /* =================================================
+       8B. UPDATE APPLICANT STATUS
+    ================================================= */
+
     async function updateApplicantStatus(
         applicationId,
         status,
@@ -1519,7 +1691,7 @@ if (registerForm) {
             const parameters = new URLSearchParams();
 
             parameters.append("status", status);
-            parameters.append("recruiter_id", recruiter.user_id);
+            parameters.append("recruiter_id", recruiterId);
 
             const response = await apiFetch(
                 `${API_BASE_URL}/applications/${applicationId}/status?${parameters.toString()}`,
@@ -1551,6 +1723,11 @@ if (registerForm) {
         }
     }
 
+
+    /* =================================================
+       8C. LOAD RECRUITER APPLICANTS
+    ================================================= */
+
     async function loadRecruiterApplicants() {
 
         if (!applicantsContainer || !applicantsMessage) return;
@@ -1565,7 +1742,7 @@ if (registerForm) {
         try {
 
             const response = await apiFetch(
-                `${API_BASE_URL}/recruiters/${recruiter.user_id}/applicants`
+                `${API_BASE_URL}/recruiters/${recruiterId}/applicants`
             );
 
             const applicants = await response.json();
@@ -1608,6 +1785,9 @@ if (registerForm) {
                     selected: "status-selected",
                     rejected: "status-rejected"
                 }[normalizedStatus] || "status-pending";
+
+                const applicationId =
+                    applicant.application_id || applicant.id;
 
                 const card = document.createElement("article");
 
@@ -1686,6 +1866,26 @@ if (registerForm) {
 
                     </div>
 
+                    <div class="applicant-resume-actions">
+
+                        <button
+                            type="button"
+                            class="btn btn-outline-primary view-applicant-resume"
+                        >
+                            <i class="bi bi-file-earmark-pdf"></i>
+                            View Resume
+                        </button>
+
+                        <button
+                            type="button"
+                            class="btn btn-outline-success download-applicant-resume"
+                        >
+                            <i class="bi bi-download"></i>
+                            Download Resume
+                        </button>
+
+                    </div>
+
                     <div class="applicant-actions">
 
                         <button type="button" class="btn btn-primary shortlist-applicant">
@@ -1703,6 +1903,12 @@ if (registerForm) {
                     </div>
                 `;
 
+                const viewResumeButton =
+                    card.querySelector(".view-applicant-resume");
+
+                const downloadResumeButton =
+                    card.querySelector(".download-applicant-resume");
+
                 const shortlistButton =
                     card.querySelector(".shortlist-applicant");
 
@@ -1712,10 +1918,30 @@ if (registerForm) {
                 const rejectButton =
                     card.querySelector(".reject-applicant");
 
+                viewResumeButton.addEventListener("click", function () {
+
+                    handleApplicantResume(
+                        applicationId,
+                        "view",
+                        viewResumeButton
+                    );
+
+                });
+
+                downloadResumeButton.addEventListener("click", function () {
+
+                    handleApplicantResume(
+                        applicationId,
+                        "download",
+                        downloadResumeButton
+                    );
+
+                });
+
                 shortlistButton.addEventListener("click", function () {
 
                     updateApplicantStatus(
-                        applicant.application_id,
+                        applicationId,
                         "Shortlisted",
                         shortlistButton
                     );
@@ -1725,7 +1951,7 @@ if (registerForm) {
                 selectButton.addEventListener("click", function () {
 
                     updateApplicantStatus(
-                        applicant.application_id,
+                        applicationId,
                         "Selected",
                         selectButton
                     );
@@ -1735,7 +1961,7 @@ if (registerForm) {
                 rejectButton.addEventListener("click", function () {
 
                     updateApplicantStatus(
-                        applicant.application_id,
+                        applicationId,
                         "Rejected",
                         rejectButton
                     );
@@ -1797,18 +2023,7 @@ if (registerForm) {
     const postJobButton =
         document.getElementById("postJobButton");
 
-    let recruiter = null;
-
-    try {
-
-        recruiter = JSON.parse(
-            sessionStorage.getItem("campusconnectUser") || "null"
-        );
-
-    } catch (error) {
-
-        console.error("Unable to read recruiter session:", error);
-    }
+    let recruiter = getCampusConnectUser();
 
     function showPostJobMessage(message, type) {
 
@@ -1843,10 +2058,13 @@ if (registerForm) {
 
         event.preventDefault();
 
+        const recruiterId =
+            recruiter?.user_id || recruiter?.id || recruiter?._id;
+
         if (
             !recruiter ||
-            recruiter.role !== "recruiter" ||
-            !recruiter.user_id
+            String(recruiter.role).toLowerCase() !== "recruiter" ||
+            !recruiterId
         ) {
 
             showPostJobMessage(
@@ -1887,7 +2105,7 @@ if (registerForm) {
 
             application_deadline: value("applicationDeadline"),
 
-            recruiter_id: recruiter.user_id
+            recruiter_id: recruiterId
         };
 
         if (
@@ -2273,9 +2491,10 @@ if (!window.campusConnectAccessBlocked) {
     }
 }
 
-
 /* =====================================================
    12. ADMIN JOB MANAGEMENT
+   UPDATED: EDIT AND DELETE JOBS
+   Uses the existing adminEditJobModal in admin-dashboard.html
 ===================================================== */
 
 if (!window.campusConnectAccessBlocked) {
@@ -2288,35 +2507,590 @@ if (!window.campusConnectAccessBlocked) {
         const adminJobsMessage =
             document.getElementById("adminJobsMessage");
 
-        function escapeAdminJobHTML(value) {
+        let latestAdminJobs = [];
 
-            return String(value ?? "Not specified").replace(
+        /* ---------------------------------------------
+           COMMON HELPERS
+        --------------------------------------------- */
+
+        function escapeAdminJobHTML(value) {
+            return String(value ?? "—").replace(
                 /[&<>"']/g,
                 character => ({
-
                     "&": "&amp;",
                     "<": "&lt;",
                     ">": "&gt;",
                     '"': "&quot;",
                     "'": "&#039;"
-
                 })[character]
             );
         }
+
+        function showAdminJobMessage(message, type = "info") {
+
+            if (!adminJobsMessage) return;
+
+            adminJobsMessage.className = `alert alert-${type}`;
+            adminJobsMessage.textContent = message;
+            adminJobsMessage.hidden = false;
+        }
+
+        function clearAdminJobMessage() {
+
+            if (!adminJobsMessage) return;
+
+            adminJobsMessage.textContent = "";
+            adminJobsMessage.hidden = true;
+        }
+
+        function getAdminJobField(id) {
+            return document.getElementById(id);
+        }
+
+        function getAdminJobValue(id) {
+
+            const element = getAdminJobField(id);
+
+            return element ? element.value.trim() : "";
+        }
+
+        function setAdminJobValue(id, value) {
+
+            const element = getAdminJobField(id);
+
+            if (element) {
+                element.value = value ?? "";
+            }
+        }
+
+        function getJobId(job) {
+            return job.id || job._id || job.job_id || "";
+        }
+
+
+        /* ---------------------------------------------
+           EXISTING EDIT MODAL
+        --------------------------------------------- */
+
+        function getAdminEditModal() {
+
+            return document.getElementById("adminEditJobModal");
+        }
+
+        function showAdminEditModal() {
+
+            const modalElement = getAdminEditModal();
+
+            if (!modalElement) {
+                alert("Edit Job modal was not found in admin-dashboard.html.");
+                return;
+            }
+
+            if (window.bootstrap && window.bootstrap.Modal) {
+
+                const modal = window.bootstrap.Modal.getOrCreateInstance(
+                    modalElement
+                );
+
+                modal.show();
+
+            } else {
+
+                modalElement.style.display = "block";
+                modalElement.classList.add("show");
+                modalElement.removeAttribute("aria-hidden");
+                document.body.classList.add("modal-open");
+            }
+        }
+
+        function hideAdminEditModal() {
+
+            const modalElement = getAdminEditModal();
+
+            if (!modalElement) return;
+
+            if (window.bootstrap && window.bootstrap.Modal) {
+
+                const modal = window.bootstrap.Modal.getOrCreateInstance(
+                    modalElement
+                );
+
+                modal.hide();
+
+            } else {
+
+                modalElement.style.display = "none";
+                modalElement.classList.remove("show");
+                modalElement.setAttribute("aria-hidden", "true");
+                document.body.classList.remove("modal-open");
+            }
+        }
+
+
+        /* ---------------------------------------------
+           OPEN EDIT JOB
+        --------------------------------------------- */
+
+        function openAdminJobEditModal(job) {
+
+            const jobId = getJobId(job);
+
+            if (!jobId) {
+                alert("Job ID is missing. Cannot edit this job.");
+                return;
+            }
+
+            setAdminJobValue("adminEditJobId", jobId);
+
+            setAdminJobValue(
+                "adminEditCompany",
+                job.company_name || job.company
+            );
+
+            setAdminJobValue(
+                "adminEditTitle",
+                job.job_title || job.title
+            );
+
+            setAdminJobValue(
+                "adminEditDescription",
+                job.description
+            );
+
+            setAdminJobValue(
+                "adminEditCGPA",
+                job.minimum_cgpa
+            );
+
+            setAdminJobValue(
+                "adminEditDepartment",
+                job.eligible_department || job.department
+            );
+
+            setAdminJobValue(
+                "adminEditGraduationYear",
+                job.eligible_graduation_year ??
+                job.graduation_year ??
+                ""
+            );
+
+            setAdminJobValue(
+                "adminEditSalary",
+                job.salary_package || job.salary
+            );
+
+            setAdminJobValue(
+                "adminEditLocation",
+                job.job_location || job.location
+            );
+
+            let skills = job.required_skills || job.skills || "";
+
+            if (Array.isArray(skills)) {
+                skills = skills.join(", ");
+            }
+
+            setAdminJobValue(
+                "adminEditSkills",
+                skills
+            );
+
+            setAdminJobValue(
+                "adminEditDeadline",
+                job.application_deadline
+                    ? String(job.application_deadline).substring(0, 10)
+                    : ""
+            );
+
+            const message = getAdminJobField("adminEditJobMessage");
+
+            if (message) {
+                message.textContent = "";
+                message.hidden = true;
+                message.className = "alert";
+            }
+
+            showAdminEditModal();
+        }
+
+
+        /* ---------------------------------------------
+           SAVE EDITED JOB
+        --------------------------------------------- */
+
+        async function saveAdminJobChanges(event) {
+
+            event.preventDefault();
+
+            const jobId = getAdminJobValue("adminEditJobId");
+
+            const saveButton =
+                getAdminJobField("adminSaveJobButton");
+
+            const message =
+                getAdminJobField("adminEditJobMessage");
+
+            function showEditMessage(text, type = "danger") {
+
+                if (!message) {
+                    alert(text);
+                    return;
+                }
+
+                message.textContent = text;
+                message.className = `alert alert-${type}`;
+                message.hidden = false;
+            }
+
+            if (!jobId) {
+                showEditMessage("Job ID is missing. Please close and reopen Edit Job.");
+                return;
+            }
+
+            const companyName =
+                getAdminJobValue("adminEditCompany");
+
+            const jobTitle =
+                getAdminJobValue("adminEditTitle");
+
+            const description =
+                getAdminJobValue("adminEditDescription");
+
+            const department =
+                getAdminJobValue("adminEditDepartment");
+
+            const cgpaValue =
+                getAdminJobValue("adminEditCGPA");
+
+            const graduationYearValue =
+                getAdminJobValue("adminEditGraduationYear");
+
+            const minimumCGPA = Number(cgpaValue);
+
+            const graduationYear = graduationYearValue === ""
+                ? null
+                : Number(graduationYearValue);
+
+            /* Validate required fields */
+
+            if (!companyName || !jobTitle || !description) {
+
+                showEditMessage(
+                    "Please enter the company name, job title and job description."
+                );
+
+                return;
+            }
+
+            /* Validate CGPA */
+
+            if (
+                cgpaValue === "" ||
+                !Number.isFinite(minimumCGPA) ||
+                minimumCGPA < 0 ||
+                minimumCGPA > 10
+            ) {
+
+                showEditMessage(
+                    "Minimum CGPA must be between 0 and 10."
+                );
+
+                return;
+            }
+
+            /* Validate graduation year only when entered */
+
+            if (
+                graduationYear !== null &&
+                (
+                    !Number.isInteger(graduationYear) ||
+                    graduationYear < 2020 ||
+                    graduationYear > 2040
+                )
+            ) {
+
+                showEditMessage(
+                    "Enter a valid graduation year between 2020 and 2040, or leave it blank."
+                );
+
+                return;
+            }
+
+            /* Validate application deadline only when entered */
+
+            const deadline =
+                getAdminJobValue("adminEditDeadline");
+
+            if (deadline) {
+
+                const deadlineDate = new Date(
+                    deadline + "T00:00:00"
+                );
+
+                const today = new Date();
+
+                today.setHours(0, 0, 0, 0);
+
+                if (
+                    Number.isNaN(deadlineDate.getTime()) ||
+                    deadlineDate < today
+                ) {
+
+                    showEditMessage(
+                        "Application deadline must be today or a future date."
+                    );
+
+                    return;
+                }
+            }
+
+            /*
+               Send the field names expected by the FastAPI
+               JobUpdate model in main.py.
+            */
+
+            const updatedJob = {
+
+                company_name: companyName,
+
+                job_title: jobTitle,
+
+                description: description,
+
+                minimum_cgpa: minimumCGPA,
+
+                eligible_department: department || null,
+
+                required_skills:
+                    getAdminJobValue("adminEditSkills") || null,
+
+                salary_package:
+                    getAdminJobValue("adminEditSalary") || null,
+
+                eligible_graduation_year: graduationYear,
+
+                job_location:
+                    getAdminJobValue("adminEditLocation") || null,
+
+                application_deadline: deadline || null
+            };
+
+            const originalButtonHTML = saveButton
+                ? saveButton.innerHTML
+                : "Save Changes";
+
+            if (saveButton) {
+                saveButton.disabled = true;
+                saveButton.textContent = "Saving...";
+            }
+
+            if (message) {
+                message.hidden = true;
+            }
+
+            try {
+
+                const response = await apiFetch(
+                    `${API_BASE_URL}/jobs/${encodeURIComponent(jobId)}`,
+                    {
+                        method: "PUT",
+
+                        headers: {
+                            "Content-Type": "application/json"
+                        },
+
+                        body: JSON.stringify(updatedJob)
+                    }
+                );
+
+                let result = {};
+
+                try {
+                    result = await response.json();
+                } catch (error) {
+                    result = {};
+                }
+
+                if (!response.ok) {
+
+                    let errorMessage =
+                        result.detail ||
+                        result.message ||
+                        `Unable to update job. Server returned ${response.status}.`;
+
+                    if (Array.isArray(errorMessage)) {
+
+                        errorMessage = errorMessage
+                            .map(item => {
+
+                                const field = Array.isArray(item.loc)
+                                    ? item.loc.slice(1).join(" → ")
+                                    : "Field";
+
+                                return `${field}: ${item.msg || "Invalid value"}`;
+
+                            })
+                            .join(" | ");
+                    }
+
+                    throw new Error(errorMessage);
+                }
+
+                hideAdminEditModal();
+
+                showAdminJobMessage(
+                    "Job opportunity updated successfully.",
+                    "success"
+                );
+
+                /* Refresh job table */
+
+                await loadAdminJobs();
+
+                /* Refresh total job count */
+
+                await refreshAdminJobStatistics();
+
+            } catch (error) {
+
+                console.error(
+                    "Admin Job Update Error:",
+                    error
+                );
+
+                showEditMessage(
+                    error.message || "Unable to update job."
+                );
+
+            } finally {
+
+                if (saveButton) {
+                    saveButton.disabled = false;
+                    saveButton.innerHTML = originalButtonHTML;
+                }
+            }
+        }
+
+
+        /* ---------------------------------------------
+           CONNECT EXISTING EDIT FORM
+        --------------------------------------------- */
+
+        const adminEditJobForm =
+            document.getElementById("adminEditJobForm");
+
+        if (adminEditJobForm) {
+
+            /*
+               Prevent duplicate submit listeners if this
+               section is initialized more than once.
+            */
+
+            if (adminEditJobForm.dataset.adminEditBound !== "true") {
+
+                adminEditJobForm.addEventListener(
+                    "submit",
+                    saveAdminJobChanges
+                );
+
+                adminEditJobForm.dataset.adminEditBound = "true";
+            }
+
+        } else {
+
+            console.error(
+                "adminEditJobForm was not found. Check admin-dashboard.html."
+            );
+        }
+
+
+        /* ---------------------------------------------
+           DELETE JOB
+        --------------------------------------------- */
+
+        async function deleteAdminJob(jobId, jobTitle, button) {
+
+            if (!jobId) {
+                alert("Job ID is missing. Cannot delete this job.");
+                return;
+            }
+
+            const confirmed = confirm(
+                `Are you sure you want to delete "${jobTitle}"?\n\nThis action cannot be undone.`
+            );
+
+            if (!confirmed) return;
+
+            const originalButtonHTML = button.innerHTML;
+
+            button.disabled = true;
+            button.textContent = "Deleting...";
+
+            try {
+
+                const response = await apiFetch(
+                    `${API_BASE_URL}/jobs/${encodeURIComponent(jobId)}`,
+                    {
+                        method: "DELETE"
+                    }
+                );
+
+                let result = {};
+
+                try {
+                    result = await response.json();
+                } catch (error) {
+                    result = {};
+                }
+
+                if (!response.ok) {
+
+                    throw new Error(
+                        result.detail ||
+                        result.message ||
+                        `Unable to delete job. Server returned ${response.status}.`
+                    );
+                }
+
+                showAdminJobMessage(
+                    "Job opportunity deleted successfully.",
+                    "success"
+                );
+
+                await loadAdminJobs();
+
+                await refreshAdminJobStatistics();
+
+            } catch (error) {
+
+                console.error(
+                    "Admin Job Delete Error:",
+                    error
+                );
+
+                alert(error.message);
+
+                button.disabled = false;
+                button.innerHTML = originalButtonHTML;
+            }
+        }
+
+
+        /* ---------------------------------------------
+           LOAD ADMIN JOBS
+        --------------------------------------------- */
 
         async function loadAdminJobs() {
 
             adminJobsContainer.innerHTML = `
                 <tr>
-                    <td colspan="6" class="text-center py-4">
+                    <td colspan="7" class="text-center py-4">
                         Loading job opportunities...
                     </td>
                 </tr>
             `;
 
-            if (adminJobsMessage) {
-                adminJobsMessage.textContent = "";
-            }
+            clearAdminJobMessage();
 
             try {
 
@@ -2325,18 +3099,41 @@ if (!window.campusConnectAccessBlocked) {
                 );
 
                 if (!response.ok) {
+
                     throw new Error(
-                        "Unable to retrieve job opportunities."
+                        `Unable to retrieve jobs. Server returned ${response.status}.`
                     );
                 }
 
                 const jobs = await response.json();
 
-                if (!Array.isArray(jobs) || jobs.length === 0) {
+                if (!Array.isArray(jobs)) {
+
+                    throw new Error(
+                        "Unexpected response from jobs API."
+                    );
+                }
+
+                jobs.sort((a, b) => {
+
+                    const dateA = new Date(
+                        a.published_at || a.created_at || a.posted_at || 0
+                    ).getTime() || 0;
+
+                    const dateB = new Date(
+                        b.published_at || b.created_at || b.posted_at || 0
+                    ).getTime() || 0;
+
+                    return dateB - dateA;
+                });
+
+                latestAdminJobs = jobs;
+
+                if (jobs.length === 0) {
 
                     adminJobsContainer.innerHTML = `
                         <tr>
-                            <td colspan="6" class="text-center py-4">
+                            <td colspan="7" class="text-center py-4">
                                 No job opportunities found.
                             </td>
                         </tr>
@@ -2345,37 +3142,131 @@ if (!window.campusConnectAccessBlocked) {
                     return;
                 }
 
-                adminJobsContainer.innerHTML = jobs.map(job => `
+                adminJobsContainer.innerHTML = jobs.map(job => {
 
-                    <tr>
+                    const jobId = getJobId(job);
 
-                        <td class="fw-semibold">
-                            ${escapeAdminJobHTML(job.title)}
-                        </td>
+                    return `
+                        <tr>
 
-                        <td>
-                            ${escapeAdminJobHTML(job.company)}
-                        </td>
+                            <td class="fw-semibold">
+                                ${escapeAdminJobHTML(job.title || job.job_title)}
+                            </td>
 
-                        <td>
-                            ${escapeAdminJobHTML(job.department)}
-                        </td>
+                            <td>
+                                ${escapeAdminJobHTML(job.company || job.company_name)}
+                            </td>
 
-                        <td>
-                            ${job.minimum_cgpa ?? "—"}
-                        </td>
+                            <td>
+                                ${escapeAdminJobHTML(job.department || job.eligible_department)}
+                            </td>
 
-                        <td>
-                            ${job.graduation_year ?? "Not specified"}
-                        </td>
+                            <td>
+                                ${escapeAdminJobHTML(job.minimum_cgpa)}
+                            </td>
 
-                        <td>
-                            ${escapeAdminJobHTML(job.location)}
-                        </td>
+                            <td>
+                                ${escapeAdminJobHTML(
+                                    job.graduation_year ??
+                                    job.eligible_graduation_year ??
+                                    "Not specified"
+                                )}
+                            </td>
 
-                    </tr>
+                            <td>
+                                ${escapeAdminJobHTML(job.location || job.job_location)}
+                            </td>
 
-                `).join("");
+                            <td class="text-center">
+
+                                <div class="d-flex justify-content-center gap-2 flex-wrap">
+
+                                    <button
+                                        type="button"
+                                        class="btn btn-sm btn-outline-primary admin-edit-job"
+                                        data-job-id="${escapeAdminJobHTML(jobId)}"
+                                    >
+                                        <i class="bi bi-pencil-square"></i>
+                                        Edit
+                                    </button>
+
+                                    <button
+                                        type="button"
+                                        class="btn btn-sm btn-outline-danger admin-delete-job"
+                                        data-job-id="${escapeAdminJobHTML(jobId)}"
+                                    >
+                                        <i class="bi bi-trash"></i>
+                                        Delete
+                                    </button>
+
+                                </div>
+
+                            </td>
+
+                        </tr>
+                    `;
+
+                }).join("");
+
+
+                /* Attach Edit buttons */
+
+                adminJobsContainer
+                    .querySelectorAll(".admin-edit-job")
+                    .forEach(button => {
+
+                        button.addEventListener("click", function () {
+
+                            const jobId = this.dataset.jobId;
+
+                            const selectedJob = latestAdminJobs.find(
+                                job => String(getJobId(job)) === String(jobId)
+                            );
+
+                            if (!selectedJob) {
+
+                                alert(
+                                    "Unable to find the selected job. Please refresh the job list."
+                                );
+
+                                return;
+                            }
+
+                            openAdminJobEditModal(selectedJob);
+                        });
+                    });
+
+
+                /* Attach Delete buttons */
+
+                adminJobsContainer
+                    .querySelectorAll(".admin-delete-job")
+                    .forEach(button => {
+
+                        button.addEventListener("click", function () {
+
+                            const jobId = this.dataset.jobId;
+
+                            const selectedJob = latestAdminJobs.find(
+                                job => String(getJobId(job)) === String(jobId)
+                            );
+
+                            if (!selectedJob) {
+
+                                alert("Unable to find the selected job.");
+                                return;
+                            }
+
+                            deleteAdminJob(
+                                jobId,
+                                selectedJob.title ||
+                                selectedJob.job_title ||
+                                "this job",
+                                this
+                            );
+                        });
+                    });
+
 
                 if (adminJobsMessage) {
 
@@ -2385,40 +3276,91 @@ if (!window.campusConnectAccessBlocked) {
                             Successfully loaded ${jobs.length} job opportunities.
                         </div>
                     `;
+
+                    adminJobsMessage.hidden = false;
                 }
 
             } catch (error) {
 
-                console.error("Admin Job Management Error:", error);
+                console.error(
+                    "Admin Job Management Error:",
+                    error
+                );
 
                 adminJobsContainer.innerHTML = `
                     <tr>
-                        <td colspan="6" class="text-center text-danger py-4">
+                        <td colspan="7" class="text-center text-danger py-4">
                             Failed to load job opportunities.
                         </td>
                     </tr>
                 `;
 
-                if (adminJobsMessage) {
-                    adminJobsMessage.textContent = error.message;
-                }
+                showAdminJobMessage(
+                    error.message,
+                    "danger"
+                );
             }
         }
+
+
+        /* ---------------------------------------------
+           REFRESH ADMIN JOB STATISTICS
+        --------------------------------------------- */
+
+        async function refreshAdminJobStatistics() {
+
+            try {
+
+                const response = await apiFetch(
+                    `${API_BASE_URL}/admin/dashboard`
+                );
+
+                if (!response.ok) return;
+
+                const data = await response.json();
+
+                const totalJobsElement =
+                    document.getElementById("adminTotalJobs");
+
+                if (totalJobsElement) {
+
+                    totalJobsElement.textContent =
+                        data.total_jobs ?? 0;
+                }
+
+            } catch (error) {
+
+                console.error(
+                    "Unable to refresh admin job statistics:",
+                    error
+                );
+            }
+        }
+
+
+        /* ---------------------------------------------
+           REFRESH JOBS BUTTON
+        --------------------------------------------- */
 
         const refreshAdminJobsButton =
             document.getElementById("refreshAdminJobsButton");
 
         if (refreshAdminJobsButton) {
+
             refreshAdminJobsButton.addEventListener(
                 "click",
                 loadAdminJobs
             );
         }
 
+
+        /* ---------------------------------------------
+           INITIAL LOAD
+        --------------------------------------------- */
+
         loadAdminJobs();
     }
 }
-
 
 /* =====================================================
    13. ADMIN APPLICATION MONITORING
@@ -2629,5 +3571,65 @@ if (!window.campusConnectAccessBlocked) {
 
 
 /* =====================================================
-   14. END OF CAMPUSCONNECT FRONTEND JAVASCRIPT
+   14. END OF CAREERSPHERE FRONTEND JAVASCRIPT
 ===================================================== */
+
+/* =====================================================
+   15. CAREERSPHERE PRESENTATION + PLACEMENT HISTORY
+   Uses the existing backend; no fabricated placement figures.
+===================================================== */
+(function initialiseCareerSphereEnhancements() {
+    const style = document.createElement("style");
+    style.textContent = `
+      .job-published-date{margin:10px 0 12px;font-size:.82rem}
+      .career-skill-guidance{margin:12px 0;padding:12px 14px;border:1px solid #dbeafe;border-left:4px solid #2563eb;border-radius:10px;background:#f8fbff;color:#1e293b;font-size:.88rem;line-height:1.5}
+      .career-skill-guidance strong{display:block;margin-bottom:4px;color:#1d4ed8}
+      .career-placement-panel{margin:28px 0;padding:22px;border:1px solid #e2e8f0;border-radius:16px;background:#fff;box-shadow:0 8px 24px rgba(15,23,42,.06)}
+      .career-placement-panel h3{margin:0 0 6px;font-size:1.2rem;font-weight:700;color:#0f172a}
+      .career-placement-panel p{color:#64748b;font-size:.9rem}
+      .career-placement-canvas{display:block;width:100%;height:260px}
+    `;
+    document.head.appendChild(style);
+
+    const page = window.location.pathname.toLowerCase();
+    if (!page.endsWith("student-dashboard.html")) return;
+    const jobsContainer = document.getElementById("jobsContainer");
+    if (!jobsContainer) return;
+
+    const panel = document.createElement("section");
+    panel.className = "career-placement-panel";
+    panel.innerHTML = `<h3><i class="bi bi-graph-up-arrow"></i> Placement History</h3><p>Previous-year placement statistics from your portal records.</p><div id="careerPlacementStatus" class="small text-muted">Loading placement history...</div><canvas id="careerPlacementChart" class="career-placement-canvas" role="img" aria-label="Year-wise placement history chart"></canvas>`;
+    jobsContainer.parentElement.insertAdjacentElement("afterend", panel);
+
+    async function loadPlacementHistory() {
+      const status = document.getElementById("careerPlacementStatus");
+      const canvas = document.getElementById("careerPlacementChart");
+      try {
+        const response = await apiFetch(`${API_BASE_URL}/analytics/placement-history`);
+        if (!response.ok) throw new Error(`Placement history endpoint returned ${response.status}`);
+        const payload = await response.json();
+        const rows = Array.isArray(payload) ? payload : (payload.data || payload.history || payload.placements || []);
+        const values = rows.map(row => ({ year: String(row.year || row.academic_year || ""), count: Number(row.placed ?? row.placed_students ?? row.placements ?? row.total_placed) })).filter(row => row.year && Number.isFinite(row.count));
+        if (!values.length) throw new Error("No historical placement records are available yet.");
+        values.sort((a,b) => a.year.localeCompare(b.year));
+        status.textContent = values.map(v => `${v.year}: ${v.count} placed`).join("  •  ");
+        const dpr = window.devicePixelRatio || 1;
+        const width = Math.max(320, canvas.clientWidth);
+        const height = 260;
+        canvas.width = width * dpr; canvas.height = height * dpr;
+        const ctx = canvas.getContext("2d"); ctx.scale(dpr,dpr);
+        const pad = {left:42,right:18,top:18,bottom:42};
+        const plotW = width-pad.left-pad.right, plotH = height-pad.top-pad.bottom;
+        const max = Math.max(1,...values.map(v=>v.count));
+        ctx.clearRect(0,0,width,height); ctx.font = "12px Arial"; ctx.fillStyle="#64748b"; ctx.strokeStyle="#e2e8f0";
+        for(let i=0;i<=4;i++){ const y=pad.top+plotH-(plotH*i/4); ctx.beginPath();ctx.moveTo(pad.left,y);ctx.lineTo(width-pad.right,y);ctx.stroke();ctx.fillText(String(Math.round(max*i/4)),5,y+4); }
+        const slot=plotW/values.length, barW=Math.min(54,slot*.58);
+        values.forEach((v,i)=>{const h=(v.count/max)*plotH;const x=pad.left+i*slot+(slot-barW)/2;const y=pad.top+plotH-h;ctx.fillStyle="#2563eb";ctx.beginPath();ctx.roundRect(x,y,barW,h,5);ctx.fill();ctx.fillStyle="#334155";ctx.textAlign="center";ctx.fillText(String(v.count),x+barW/2,Math.max(12,y-7));ctx.fillStyle="#64748b";ctx.fillText(v.year,x+barW/2,height-14);});
+      } catch(error) {
+        console.info("Placement history unavailable:",error.message);
+        status.textContent = "Historical placement data is not available yet. Add year-wise placement records to the backend to display this graph.";
+        canvas.hidden = true;
+      }
+    }
+    loadPlacementHistory();
+  })();

@@ -6,19 +6,17 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
 
-    <title>Recruiter Dashboard | CampusConnect</title>
+    <title>Recruiter Dashboard | CareerSphere</title>
+    <meta name="description" content="Manage job postings, review applicants and coordinate recruitment with CareerSphere.">
 
-    <link
-        href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css"
-        rel="stylesheet">
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css"
+          rel="stylesheet">
 
-    <link
-        href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css"
-        rel="stylesheet">
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css"
+          rel="stylesheet">
 
-    <link
-        href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap"
-        rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap"
+          rel="stylesheet">
 
     <link rel="stylesheet" href="style.css">
     <link rel="stylesheet" href="dashboard.css">
@@ -26,16 +24,16 @@
 
 <body>
 
-    <!-- NAVIGATION -->
     <nav class="navbar navbar-expand-lg navbar-dark bg-dark">
         <div class="container-fluid px-4">
 
             <a class="navbar-brand fw-bold" href="index.html">
                 <i class="bi bi-mortarboard-fill"></i>
-                CampusConnect
+                CareerSphere
             </a>
 
             <div class="d-flex align-items-center gap-3">
+
                 <span class="text-white">
                     <i class="bi bi-person-badge"></i>
                     <span id="recruiterName">Recruiter</span>
@@ -48,19 +46,17 @@
                     <i class="bi bi-box-arrow-right"></i>
                     Logout
                 </button>
-            </div>
 
+            </div>
         </div>
     </nav>
 
-
     <main class="dashboard-container">
 
-        <!-- WELCOME SECTION -->
         <section class="dashboard-welcome">
             <div>
                 <p class="text-primary fw-semibold mb-2">
-                    RECRUITER WORKSPACE
+                    CAREERSPHERE RECRUITER WORKSPACE
                 </p>
 
                 <h1>
@@ -74,8 +70,6 @@
             </div>
         </section>
 
-
-        <!-- RECRUITER STATISTICS -->
         <section class="dashboard-stats">
 
             <div class="stat-card">
@@ -120,8 +114,6 @@
 
         </section>
 
-
-        <!-- POST NEW JOB -->
         <section class="dashboard-section" id="postJobSection">
 
             <div class="mb-4">
@@ -186,28 +178,16 @@
                                 class="form-select"
                                 id="jobDepartment"
                                 required>
+
                                 <option value="">Select department</option>
-                                <option value="Computer Science">
-                                    Computer Science
-                                </option>
-                                <option value="Information Science">
-                                    Information Science
-                                </option>
-                                <option value="Electronics">
-                                    Electronics
-                                </option>
-                                <option value="Electrical">
-                                    Electrical
-                                </option>
-                                <option value="Mechanical">
-                                    Mechanical
-                                </option>
-                                <option value="Civil">
-                                    Civil
-                                </option>
-                                <option value="All Departments">
-                                    All Departments
-                                </option>
+                                <option value="Computer Science">Computer Science</option>
+                                <option value="Information Science">Information Science</option>
+                                <option value="Electronics">Electronics</option>
+                                <option value="Electrical">Electrical</option>
+                                <option value="Mechanical">Mechanical</option>
+                                <option value="Civil">Civil</option>
+                                <option value="All Departments">All Departments</option>
+
                             </select>
                         </div>
 
@@ -305,31 +285,23 @@
                             type="submit"
                             class="btn btn-primary px-4"
                             id="postJobButton">
-
                             <i class="bi bi-send-fill"></i>
                             Post Job
-
                         </button>
 
                         <button
                             type="reset"
                             class="btn btn-outline-secondary px-4">
-
                             <i class="bi bi-arrow-counterclockwise"></i>
                             Clear Form
-
                         </button>
 
                     </div>
 
                 </form>
-
             </div>
-
         </section>
 
-
-        <!-- JOB MANAGEMENT -->
         <section class="dashboard-section">
 
             <div class="d-flex justify-content-between align-items-center flex-wrap gap-3 mb-4">
@@ -337,7 +309,7 @@
                 <div>
                     <h2>My Job Opportunities</h2>
                     <p>
-                        View and manage the placement opportunities
+                        View, edit and manage the placement opportunities
                         posted by your account.
                     </p>
                 </div>
@@ -346,10 +318,8 @@
                     class="btn btn-primary"
                     id="refreshRecruiterJobsButton"
                     type="button">
-
                     <i class="bi bi-arrow-clockwise"></i>
                     Refresh Jobs
-
                 </button>
 
             </div>
@@ -367,8 +337,6 @@
 
         </section>
 
-
-        <!-- APPLICANT MANAGEMENT -->
         <section class="dashboard-section" id="applicantsSection">
 
             <div class="mb-4">
@@ -392,11 +360,9 @@
 
         </section>
 
-
-        <!-- FOOTER -->
         <footer class="text-center py-4 mt-5">
             <p class="mb-1">
-                CampusConnect - Intelligent Campus Placement Portal
+                CareerSphere - Intelligent Campus Placement Portal
             </p>
             <small>
                 Recruiter Management Workspace
@@ -406,6 +372,8 @@
     </main>
 
     <script src="script.js"></script>
+    <script src="features-ui.js"></script>
+    <script src="recruiter-job-edit.js"></script>
 
 </body>
 </html>
